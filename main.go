@@ -25,7 +25,12 @@ var DB *gorm.DB
 
 
 func main() {
-	var err error
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+
 	DB, err = gorm.Open(os.Getenv("DB_DIALECT"), os.Getenv("DB_URL"))
 	if err != nil {
 		panic("failed to connect database")
@@ -33,6 +38,7 @@ func main() {
 	defer DB.Close()
 
 	DB.AutoMigrate(&User{})
+	DB.AutoMigrate(&Subscriber{})
 
 	adminUser := User{
 		UserName: os.Getenv("ADMIN_USER"),
@@ -43,22 +49,26 @@ func main() {
 
 	DB.Create(&adminUser)
 
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	//CSRF := csrf.Protect([]byte(os.Getenv("CSRF_KEY")))
-
 	r := mux.NewRouter()
+	adminRouter := mux.NewRouter()
+	userRouter := mux.NewRouter()
 
 	r.Handle("/", http.FileServer(http.Dir("./views/")))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
 
-	r.Handle("/user/{name}", ValidateToken(StatusHandler))
+	r.PathPrefix("/admin/").Handler(http.StripPrefix("/admin",
+    ValidateToken(adminRouter)))
+
+	r.PathPrefix("/user/").Handler(http.StripPrefix("/user",
+    ValidateToken(userRouter)))
+
+	adminRouter.Handle("/", StatusHandler)
+	userRouter.Handle("/", StatusHandler)
+
 	// Manual Token
 	r.Handle("/login", LoginHandler).Methods("GET")
-	r.Handle("/register", RegisterHandler)//.Methods("POST")
+	r.Handle("/register", RegisterHandler).Methods("POST")
+	r.Handle("/subscribe", SubscribeHandler).Methods("POST")
 	http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stdout, r))
 }
 
@@ -102,6 +112,18 @@ func getToken(user *User) []byte{
 	return []byte(tokenString)
 }
 
+func retrieveTokenFromHeader(req *http.Request) (string, error) {
+	// Get token from the Authorization header
+	// format: Authorization: Bearer
+	var token string
+	tokens, ok := req.Header["Authorization"]
+	if ok && len(tokens) >= 1 {
+			token = tokens[0]
+			token = strings.TrimPrefix(token, "Bearer ")
+			return token,nil
+	} else { return "", errors.New("No Authorization Header Found")}
+}
+
 func parseToken(myToken string, myKey string) (*jwt.Token, error) {
     token, err := jwt.Parse(myToken, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -126,31 +148,49 @@ func parseToken(myToken string, myKey string) (*jwt.Token, error) {
     }
 }
 
-func ValidateToken(next http.Handler) http.HandlerFunc {
+func VerifyAdmin(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
-		// Get token from the Authorization header
-    // format: Authorization: Bearer
-		var token string
-    tokens, ok := r.Header["Authorization"]
-    if ok && len(tokens) >= 1 {
-        token = tokens[0]
-        token = strings.TrimPrefix(token, "Bearer ")
-    }
+		tokenString, err := retrieveTokenFromHeader(r)
 
     // If the token is empty...
-    if token == "" {
-        // If we get here, the required token is missing
+    if tokenString == "" || err != nil {
         http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
         return
     }
 
-		_, err := parseToken(token, os.Getenv("SECRET_KEY"))
+		token, err := parseToken(tokenString, os.Getenv("SECRET_KEY"))
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
-		//should do some permissions validation here...
+		claims := token.Claims.(jwt.MapClaims)
+
+		if claims["role"] != "admin" {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w,r)
+	})
+}
+
+func ValidateToken(next http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+
+		token, err := retrieveTokenFromHeader(r)
+
+    // If the token is empty...
+    if token == "" || err != nil {
+        // If we get here, the required token is missing
+        http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+        return
+    }
+
+		_, err = parseToken(token, os.Getenv("SECRET_KEY"))
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
 
 		next.ServeHTTP(w,r)
 	})
@@ -181,6 +221,25 @@ var RegisterHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reque
 	DB.Create(&newUser)
 
 	w.Write(getToken(&newUser))
+})
+
+var SubscribeHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	email := r.PostFormValue("email")
+	name := r.PostFormValue("name")
+
+	newSubscriber := Subscriber{
+		Name: name,
+		Email: email,
+	}
+
+	DB.Create(&newSubscriber)
+
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 })
 
 var NotImplemented = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

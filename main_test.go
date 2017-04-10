@@ -16,7 +16,10 @@ import (
 )
 
 const testUser = "ben"
-const testPassword = "test"
+const testPassword = "password"
+
+const testAdmin = "admin"
+const testAdminPwd = "welcome"
 
 func TestMain(m *testing.M) {
   os.Setenv("DB_DIALECT","sqlite3")
@@ -24,6 +27,7 @@ func TestMain(m *testing.M) {
   fmt.Println("Environment variables set")
 
   hash, _ := bcrypt.GenerateFromPassword([]byte(testPassword),main.Bcrypt_cost)
+  adminhash, _ := bcrypt.GenerateFromPassword([]byte(testAdminPwd),main.Bcrypt_cost)
 
   user := main.User{
     UserName: testUser ,
@@ -33,10 +37,10 @@ func TestMain(m *testing.M) {
   }
 
   adminUser := main.User{
-		UserName: os.Getenv("ADMIN_USER"),
+		UserName: testAdmin,
 		Role: "admin",
 		Email: "user@test.com",
-		PasswordHash: []byte(os.Getenv("ADMIN_PWD_HASH")),
+		PasswordHash: adminhash,
 	}
 
   if _, err := os.Stat("/path/to/whatever"); os.IsExist(err) {
@@ -50,6 +54,7 @@ func TestMain(m *testing.M) {
 	defer db.Close()
 
   db.AutoMigrate(&main.User{})
+  db.AutoMigrate(&main.Subscriber{})
   db.Create(&user)
   db.Create(&adminUser)
   main.DB = db
@@ -77,7 +82,15 @@ func doLogin(user, password string) (*httptest.ResponseRecorder, error) {
   return rr, nil
 }
 
+func getAdminPage(path, token string) (*httptest.ResponseRecorder, error) {
+  return getPage(path, main.VerifyAdmin(main.StatusHandler), token)
+}
+
 func getUserPage(path, token string) (*httptest.ResponseRecorder, error) {
+  return getPage(path, main.ValidateToken(main.StatusHandler), token)
+}
+
+func getPage(path string, h http.HandlerFunc, token string) (*httptest.ResponseRecorder, error) {
   req, err := http.NewRequest("GET", path, nil)
   if err != nil {
       return nil, err
@@ -85,7 +98,7 @@ func getUserPage(path, token string) (*httptest.ResponseRecorder, error) {
 
   req.Header["Authorization"] = []string{"Bearer " + token}
   rr := httptest.NewRecorder()
-  handler := http.HandlerFunc(main.ValidateToken(main.StatusHandler))
+  handler := http.HandlerFunc(h)
 
   handler.ServeHTTP(rr, req)
   return rr, nil
@@ -156,7 +169,7 @@ func TestValidateToken_ValidTokenSucceed(t *testing.T) {
 
   body, _ := ioutil.ReadAll(rr.Result().Body)
   token := string(body)
-  rr, err = getUserPage("/user/"+testUser, token)
+  rr, err = getUserPage("/user/", token)
 
   if status := rr.Code; status != http.StatusOK {
       t.Errorf("token handler returned wrong status code: got %v want %v",
@@ -166,7 +179,7 @@ func TestValidateToken_ValidTokenSucceed(t *testing.T) {
 }
 
 func TestValidateToken_InvalidTokenFail(t *testing.T) {
-  rr, _ := getUserPage("/user/"+testUser, "badtoken")
+  rr, _ := getUserPage("/user/", "badtoken")
 
   if status := rr.Code; status != http.StatusUnauthorized {
       t.Errorf("token handler returned wrong status code: got %v want %v",
@@ -177,7 +190,7 @@ func TestValidateToken_InvalidTokenFail(t *testing.T) {
 
 func TestRegisterUser_Succeed(t *testing.T) {
   form := url.Values{}
-  form.Add("email", "newuser@test.com")  
+  form.Add("email", "newuser@test.com")
 
   req, _ := http.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
   req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -191,5 +204,69 @@ func TestRegisterUser_Succeed(t *testing.T) {
       t.Errorf("register handler returned wrong status code: got %v want %v",
           status, http.StatusOK)
   }
+}
 
+func TestSubscribe_Succeed(t *testing.T) {
+  form := url.Values{}
+  form.Add("email", "newuser@test.com")
+  form.Add("name", "John Doe")
+
+  req, _ := http.NewRequest("POST", "/subscribe", strings.NewReader(form.Encode()))
+  req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+  rr := httptest.NewRecorder()
+  handler := http.HandlerFunc(main.SubscribeHandler)
+  handler.ServeHTTP(rr, req)
+
+  if status := rr.Code; status != http.StatusOK {
+      t.Errorf("subscribe handler returned wrong status code: got %v want %v",
+          status, http.StatusOK)
+  }
+
+}
+
+func TestVerifyAdmin_ValidTokenSucceed(t *testing.T) {
+  rr, err := doLogin(testAdmin, testAdminPwd)
+
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if status := rr.Code; status != http.StatusOK {
+      t.Errorf("login handler returned wrong status code: got %v want %v",
+          status, http.StatusOK)
+  }
+
+
+  body, _ := ioutil.ReadAll(rr.Result().Body)
+  token := string(body)
+  rr, err = getAdminPage("/admin/", token)
+
+  if status := rr.Code; status != http.StatusOK {
+      t.Errorf("token handler returned wrong status code: got %v want %v",
+          status, http.StatusOK)
+  }
+}
+
+func TestVerifyAdmin_RegularUserFail(t *testing.T) {
+  rr, err := doLogin(testUser, testPassword)
+
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if status := rr.Code; status != http.StatusOK {
+      t.Errorf("login handler returned wrong status code: got %v want %v",
+          status, http.StatusOK)
+  }
+
+
+  body, _ := ioutil.ReadAll(rr.Result().Body)
+  token := string(body)
+  rr, err = getAdminPage("/admin/", token)
+
+  if status := rr.Code; status != http.StatusUnauthorized {
+      t.Errorf("token handler returned wrong status code: got %v want %v",
+          status, http.StatusUnauthorized)
+  }
 }
