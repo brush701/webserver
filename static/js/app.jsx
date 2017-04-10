@@ -1,12 +1,22 @@
-var Greeting = React.createClass({
-  render: function() {
+class App extends React.Component {
+  constructor(props) {
+    super(props)
+  }
+
+  componentDidMount() {
+  }
+
+  componentWillUnmount() {
+  }
+
+  render() {
     return (
       <p>Hello, Universe</p>
     )
   }
-});
+};
 
 ReactDOM.render(
-  <Greeting/>,
+  <App />,
   document.getElementById('app')
 );
