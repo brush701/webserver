@@ -1,7 +1,7 @@
 package main
 
 import (
-	//"encoding/json"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -9,6 +9,7 @@ import (
 	"time"
 	"fmt"
 	"strings"
+	"io/ioutil"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/handlers"
@@ -224,18 +225,14 @@ var RegisterHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reque
 })
 
 var SubscribeHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	var newSubscriber = Subscriber{}
+
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 
-	email := r.PostFormValue("email")
-	name := r.PostFormValue("name")
-
-	newSubscriber := Subscriber{
-		Name: name,
-		Email: email,
-	}
+	err = json.Unmarshal(body, &newSubscriber)
 
 	DB.Create(&newSubscriber)
 

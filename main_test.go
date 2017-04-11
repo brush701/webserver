@@ -2,6 +2,7 @@ package main_test
 
 import (
     "os"
+  	"encoding/json"
     "net/http"
     "net/url"
     "net/http/httptest"
@@ -9,6 +10,7 @@ import (
     "io/ioutil"
     "fmt"
     "strings"
+    "bytes"
     main "git.richardbenjaminrush.com/webserver"
     "github.com/jinzhu/gorm"
   _ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -207,12 +209,15 @@ func TestRegisterUser_Succeed(t *testing.T) {
 }
 
 func TestSubscribe_Succeed(t *testing.T) {
-  form := url.Values{}
-  form.Add("email", "newuser@test.com")
-  form.Add("name", "John Doe")
+  sub := main.Subscriber{
+    Name: "John Doe",
+    Email: "newuser@test.com",
+  }
 
-  req, _ := http.NewRequest("POST", "/subscribe", strings.NewReader(form.Encode()))
-  req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+  js, _ := json.Marshal(&sub)
+
+  req, _ := http.NewRequest("POST", "/subscribe", bytes.NewBuffer(js))
+  req.Header.Add("Content-Type", "application/json")
 
   rr := httptest.NewRecorder()
   handler := http.HandlerFunc(main.SubscribeHandler)
