@@ -54,7 +54,7 @@ func main() {
 	adminRouter := mux.NewRouter()
 	userRouter := mux.NewRouter()
 
-	r.Handle("/", http.FileServer(http.Dir("./views/")))
+
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
 
 	r.PathPrefix("/admin/").Handler(http.StripPrefix("/admin",
@@ -70,6 +70,7 @@ func main() {
 	r.Handle("/login", LoginHandler).Methods("GET")
 	r.Handle("/register", RegisterHandler).Methods("POST")
 	r.Handle("/subscribe", SubscribeHandler).Methods("POST")
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./views/"))))
 	http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stdout, r))
 }
 

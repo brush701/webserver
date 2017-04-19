@@ -10,12 +10,12 @@ class App extends React.Component {
       this.handleSubmit = this.handleSubmit.bind(this);
     }
 
-    handleNameChange(username) {
-      this.setState({name: username});
+    handleNameChange(e) {
+      this.setState({name: e.target.value});
     }
 
-    handleEmailChange(address) {
-      this.setState({email: address});
+    handleEmailChange(e) {
+      this.setState({email: e.target.value});
     }
 
     handleSubmit(event) {
@@ -38,15 +38,15 @@ class App extends React.Component {
           <div className="form-group">
             <label className="lead" for="name">
               Name:
-              <MyInput type="text" id="name" className="form-control" value={this.state.name} onChange={this.handleNameChange} />
             </label>
-        </div>
+              <input type="text" id="name" className="form-control" value={this.state.name} onChange={this.handleNameChange} />
+          </div>
         <div className="form-group">
           <label className="lead" for="email">
             Email:
-            <MyInput type="email" id="email" className="form-control" value={this.state.email} onChange={this.handleEmailChange} />
           </label>
-        </div>
+          <input type="email" id="email" className="form-control" value={this.state.email} onChange={this.handleEmailChange} />
+          </div>
         <div className="form-group">
           <input type="submit" className="btn btn-lg btn-default" value="Subscribe" />
         </div>
@@ -55,24 +55,6 @@ class App extends React.Component {
     }
 };
 
-class MyInput extends React.Component {
-  constructor(props) {
-    super(props);
-    this.handleChange = this.handleChange.bind(this);
-  }
-
-  handleChange(e) {
-    this.props.onChange(e.target.value);
-  }
-
-  render() {
-    const value = this.props.value;
-    const type = this.props.type;
-    return (
-      <input type={type} value={value} onChange={this.handleChange} />
-    );
-  }
-}
 
 ReactDOM.render(
   <App />,
