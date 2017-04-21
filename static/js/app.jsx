@@ -20,6 +20,7 @@ class App extends React.Component {
 
     handleSubmit(event) {
       event.preventDefault();
+      var self = this
       fetch('/subscribe', {
         method: 'POST',
         headers: {
@@ -29,29 +30,37 @@ class App extends React.Component {
           name: this.state.name,
           email: this.state.email,
         })
+      }).then(function(response){
+        if(response.ok){
+          self.setState({subscribed: true})
+        }
       })
     }
 
     render() {
-      return (
-        <form onSubmit={this.handleSubmit}>
+      if(this.state.subscribed) {
+        return(<h1>Thank you for subscribing!</h1>)
+      } else {
+        return (
+          <form onSubmit={this.handleSubmit}>
+            <div className="form-group">
+              <label className="lead" for="name">
+                Name:
+              </label>
+                <input type="text" id="name" className="form-control" value={this.state.name} onChange={this.handleNameChange} />
+            </div>
           <div className="form-group">
-            <label className="lead" for="name">
-              Name:
+            <label className="lead" for="email">
+              Email:
             </label>
-              <input type="text" id="name" className="form-control" value={this.state.name} onChange={this.handleNameChange} />
+            <input type="email" id="email" className="form-control" value={this.state.email} onChange={this.handleEmailChange} />
+            </div>
+          <div className="form-group">
+            <input type="submit" className="btn btn-lg btn-default" value="Subscribe" />
           </div>
-        <div className="form-group">
-          <label className="lead" for="email">
-            Email:
-          </label>
-          <input type="email" id="email" className="form-control" value={this.state.email} onChange={this.handleEmailChange} />
-          </div>
-        <div className="form-group">
-          <input type="submit" className="btn btn-lg btn-default" value="Subscribe" />
-        </div>
-        </form>
-      );
+          </form>
+        );
+      }
     }
 };
 

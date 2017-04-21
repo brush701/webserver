@@ -28,8 +28,8 @@ func TestMain(m *testing.M) {
   os.Setenv("DB_URL", "test.db")
   fmt.Println("Environment variables set")
 
-  hash, _ := bcrypt.GenerateFromPassword([]byte(testPassword),main.Bcrypt_cost)
-  adminhash, _ := bcrypt.GenerateFromPassword([]byte(testAdminPwd),main.Bcrypt_cost)
+  hash, _ := bcrypt.GenerateFromPassword([]byte(testPassword),main.BcryptCost)
+  adminhash, _ := bcrypt.GenerateFromPassword([]byte(testAdminPwd),main.BcryptCost)
 
   user := main.User{
     UserName: testUser ,
@@ -45,10 +45,20 @@ func TestMain(m *testing.M) {
 		PasswordHash: adminhash,
 	}
 
-  if _, err := os.Stat("/path/to/whatever"); os.IsExist(err) {
-    // path/to/whatever does not exist
-    os.Remove("test.db")
+  sub1 := main.Subscriber{
+    Name: "Donald Duck",
+    Email: "donald@disney.com",
   }
+
+  sub2 := main.Subscriber{
+    Name: "Mickey Mouse",
+    Email: "mickey@disney.com",
+  }
+
+
+  // try to remove test.db
+  _ = os.Remove("test.db")
+
   db, err := gorm.Open(os.Getenv("DB_DIALECT"), os.Getenv("DB_URL"))
 	if err != nil {
 		panic("failed to connect database")
@@ -59,6 +69,8 @@ func TestMain(m *testing.M) {
   db.AutoMigrate(&main.Subscriber{})
   db.Create(&user)
   db.Create(&adminUser)
+  db.Create(&sub1)
+  db.Create(&sub2)
   main.DB = db
 
   retCode := m.Run()
@@ -89,7 +101,7 @@ func getAdminPage(path, token string) (*httptest.ResponseRecorder, error) {
 }
 
 func getUserPage(path, token string) (*httptest.ResponseRecorder, error) {
-  return getPage(path, main.ValidateToken(main.StatusHandler), token)
+  return getPage(path, main.VerifyUser(main.StatusHandler), token)
 }
 
 func getPage(path string, h http.HandlerFunc, token string) (*httptest.ResponseRecorder, error) {
@@ -193,10 +205,11 @@ func TestValidateToken_InvalidTokenFail(t *testing.T) {
 func TestRegisterUser_Succeed(t *testing.T) {
   form := url.Values{}
   form.Add("email", "newuser@test.com")
+  form.Add("user", "newuser")
+  form.Add("password", "newpassword")
 
   req, _ := http.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
   req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-  req.SetBasicAuth("newuser","newpassword")
 
   rr := httptest.NewRecorder()
   handler := http.HandlerFunc(main.RegisterHandler)
@@ -271,6 +284,26 @@ func TestVerifyAdmin_RegularUserFail(t *testing.T) {
   rr, err = getAdminPage("/admin/", token)
 
   if status := rr.Code; status != http.StatusUnauthorized {
+      t.Errorf("token handler returned wrong status code: got %v want %v",
+          status, http.StatusUnauthorized)
+  }
+}
+
+func TestListSubs_Success(t *testing.T) {
+  rr, err := doLogin(testAdmin, testAdminPwd)
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if status := rr.Code; status != http.StatusOK {
+      t.Errorf("login handler returned wrong status code: got %v want %v",
+          status, http.StatusOK)
+  }
+
+  body, _ := ioutil.ReadAll(rr.Result().Body)
+  token := string(body)
+  rr, err = getPage("/admin/list_subs", main.VerifyAdmin(main.SubListHandler), token)
+  if status := rr.Code; status != http.StatusOK {
       t.Errorf("token handler returned wrong status code: got %v want %v",
           status, http.StatusUnauthorized)
   }

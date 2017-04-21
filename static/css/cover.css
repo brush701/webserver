@@ -41,6 +41,17 @@ input {
   color: black;
 }
 
+.table-nonfluid {
+   width: auto !important;
+   margin-left: auto;
+   margin-right: auto;
+   border-spacing: 10px 0;
+}
+
+.table th {
+   text-align: center;
+}
+
 /* Extra markup and styles for table-esque vertical and horizontal centering */
 .site-wrapper {
   display: table;
