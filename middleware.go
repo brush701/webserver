@@ -8,7 +8,7 @@ import (
   "fmt"
 )
 
-func attemtAccess(r *http.Request, role string) error {
+func attemptAccess(r *http.Request, role string) error {
   t, err := retrieveTokenFromHeader(r)
 
   // If the token is empty...
@@ -37,7 +37,7 @@ func attemtAccess(r *http.Request, role string) error {
 //Users are authenticated via jwt. These tokens are produced by the LoginHandler
 func VerifyAdmin(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
-    err := attemtAccess(r, "admin")
+    err := attemptAccess(r, "admin")
 
     if err != nil {
       http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -52,7 +52,7 @@ func VerifyAdmin(next http.Handler) http.HandlerFunc {
 //Users are authenticated via jwt. These tokens are produced by the LoginHandler
 func VerifyUser(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
-    err := attemtAccess(r, "user")
+    err := attemptAccess(r, "user")
 
     if err != nil {
       http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
