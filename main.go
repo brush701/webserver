@@ -44,7 +44,9 @@ func main() {
 		PasswordHash: []byte(os.Getenv("ADMIN_PWD_HASH")),
 	}
 
-	DB.Create(&adminUser)
+	if !userEmailExists(adminUser) {
+		DB.Create(&adminUser)
+	}
 
 	r := mux.NewRouter()
 	adminRouter := mux.NewRouter()
@@ -122,7 +124,9 @@ var RegisterHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reque
 		Role: "user",
 	}
 
-	DB.Create(&newUser)
+	if !userEmailExists(newUser) {
+		DB.Create(&newUser)
+	}
 
 	w.Write(getToken(&newUser))
 })
@@ -138,8 +142,9 @@ var SubscribeHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Requ
 	}
 
 	err = json.Unmarshal(body, &newSubscriber)
-
-	DB.Create(&newSubscriber)
+	if !subscriberEmailExists(newSubscriber) {
+		DB.Create(&newSubscriber)
+	}
 
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 })

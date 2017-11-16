@@ -57,8 +57,8 @@ func parseToken(myToken string, myKey string) (*jwt.Token, error) {
     if err == nil && token.Valid {
 			claims := token.Claims.(jwt.MapClaims)
 
-			expiration := int64(claims["exp"].(float64))
-			if err !=  nil {
+			expiration, ok := claims["exp"].(int64)
+			if !ok {
 				return nil, errors.New("Invalid Token Expiration")
 			}
 			if expiration <= time.Now().Unix() {
@@ -67,4 +67,16 @@ func parseToken(myToken string, myKey string) (*jwt.Token, error) {
         return token, nil
     }
     return nil, errors.New("Invalid Token")
+}
+
+func userEmailExists(User newUser) (bool) {
+  tmp := new(User)
+  err =  DB.Where(User{Email: newUser.Email}).Find(&tmp).Error
+  return err == nil
+}
+
+func subscriberEmailExists(Subscriber newSub) (bool) {
+  tmp := new(Subscriber)
+  err =  DB.Where(Subscriber{Email: newSub.Email}).Find(&tmp).Error
+  return err == nil
 }
