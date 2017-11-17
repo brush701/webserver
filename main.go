@@ -37,11 +37,13 @@ func main() {
 	DB.AutoMigrate(&User{})
 	DB.AutoMigrate(&Subscriber{})
 
+	adminPwdHash, _ := bcrypt.GenerateFromPassword([]byte(os.Getenv("ADMIN_PWD")),BcryptCost)
+
 	adminUser := User{
 		UserName: os.Getenv("ADMIN_USER"),
 		Role: "admin",
 		Email: "user@test.com",
-		PasswordHash: []byte(os.Getenv("ADMIN_PWD_HASH")),
+		PasswordHash: adminPwdHash,
 	}
 
 	if !userEmailExists(adminUser) {
