@@ -22,12 +22,9 @@ var DB *gorm.DB
 
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-
+	_ = godotenv.Load()
+	
+	var err error
 	DB, err = gorm.Open(os.Getenv("DB_DIALECT"), os.Getenv("DB_URL"))
 	if err != nil {
 		panic("failed to connect database")
